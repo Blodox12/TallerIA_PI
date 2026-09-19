@@ -1,5 +1,10 @@
+import os
+from pathlib import Path
+
+import numpy as np
 from django.shortcuts import render
-from django.http import HttpResponse
+from dotenv import load_dotenv
+from openai import OpenAI
 
 from .models import Movie
 
@@ -7,6 +12,64 @@ import matplotlib.pyplot as plt
 import matplotlib
 import io
 import urllib, base64
+
+
+def cosine_similarity(first, second):
+    first_norm = np.linalg.norm(first)
+    second_norm = np.linalg.norm(second)
+    if first_norm == 0 or second_norm == 0:
+        return None
+    return float(np.dot(first, second) / (first_norm * second_norm))
+
+
+def recommendation(request):
+    prompt = request.POST.get('prompt', '').strip()
+    best_movie = None
+    best_similarity = None
+    error = None
+
+    if request.method == 'POST' and prompt:
+        load_dotenv(Path(__file__).resolve().parents[2] / 'openAI.env')
+        api_key = os.environ.get('openai_apikey')
+
+        if not api_key:
+            error = 'No se encontró la API key de OpenAI en openAI.env.'
+        else:
+            try:
+                client = OpenAI(api_key=api_key)
+                response = client.embeddings.create(
+                    input=[prompt],
+                    model='text-embedding-3-small',
+                )
+                prompt_embedding = np.asarray(
+                    response.data[0].embedding,
+                    dtype=np.float32,
+                )
+
+                for movie in Movie.objects.exclude(emb__isnull=True):
+                    movie_embedding = np.frombuffer(movie.emb, dtype=np.float32)
+                    if movie_embedding.shape != prompt_embedding.shape:
+                        continue
+                    similarity = cosine_similarity(prompt_embedding, movie_embedding)
+                    if similarity is not None and (
+                        best_similarity is None or similarity > best_similarity
+                    ):
+                        best_movie = movie
+                        best_similarity = similarity
+
+                if best_movie is None:
+                    error = 'No hay películas con embeddings compatibles para comparar.'
+            except Exception:
+                error = 'No fue posible generar la recomendación. Revisa la API key y vuelve a intentarlo.'
+    elif request.method == 'POST':
+        error = 'Escribe una descripción para buscar una película.'
+
+    return render(request, 'recommendation.html', {
+        'prompt': prompt,
+        'best_movie': best_movie,
+        'best_similarity': best_similarity,
+        'error': error,
+    })
 
 def home(request):
     #return HttpResponse('<h1>Welcome to Home Page</h1>')

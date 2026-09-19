@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-3">Movie recommendation</h1>
+    <p class="text-muted">Describe the kind of movie you would like to watch.</p>
+
+    <form method="post" class="mb-4">
+        {% csrf_token %}
+        <label for="prompt" class="form-label">Your description</label>
+        <textarea id="prompt" name="prompt" class="form-control" rows="3" required>{{ prompt }}</textarea>
+        <button type="submit" class="btn btn-primary mt-3">Find recommendation</button>
+    </form>
+
+    {% if error %}
+        <div class="alert alert-warning" role="alert">{{ error }}</div>
+    {% endif %}
+
+    {% if best_movie %}
+        <section aria-labelledby="recommendation-title">
+            <h2 id="recommendation-title" class="h4">Recommended movie</h2>
+            <div class="card mb-3" style="max-width: 720px;">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="{{ best_movie.image.url }}" class="img-fluid rounded-start" alt="{{ best_movie.title }}">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <h3 class="card-title h5">{{ best_movie.title }}</h3>
+                            <p class="card-text">{{ best_movie.description }}</p>
+                            {% if best_movie.genre %}<p class="card-text"><small class="text-muted">{{ best_movie.genre }}</small></p>{% endif %}
+                            {% if best_movie.year %}<p class="card-text"><small class="text-muted">{{ best_movie.year }}</small></p>{% endif %}
+                            <p class="card-text"><small class="text-muted">Similarity: {{ best_similarity|floatformat:4 }}</small></p>
+                            {% if best_movie.url %}<a href="{{ best_movie.url }}" class="btn btn-outline-primary">Movie link</a>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock content %}
